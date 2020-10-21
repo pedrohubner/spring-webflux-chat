@@ -1,36 +1,39 @@
 package com.pedrohubner.message.controllers;
 
+import com.pedrohubner.facades.MessagesFacade;
 import com.pedrohubner.message.models.Messages;
 import com.pedrohubner.message.models.MessagesDAO;
-import com.pedrohubner.message.repositories.MessagesRepository;
+import io.swagger.annotations.Api;
+import io.swagger.annotations.ApiResponse;
+import io.swagger.annotations.ApiResponses;
 import lombok.AllArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
-import javax.validation.Valid;
-
 @RestController
+@Api(tags = "Messages controller")
 @AllArgsConstructor
 public class MessagesController {
 
-    private final MessagesRepository messagesRepository;
+    private final MessagesFacade messagesFacade;
 
     @PostMapping(value = "/chats")
-    public Mono<Messages> postChatWithBody(@Valid @RequestBody MessagesDAO chatMessage) {
-        Messages newMessage = Messages.builder()
-                .message(chatMessage.getMessage())
-                .addressee(chatMessage.getAddressee())
-                .sender(chatMessage.getSender())
-                .channelId(chatMessage.getChannelId())
-                .build();
-        return messagesRepository.insert(newMessage);
+    @ApiResponses({
+            @ApiResponse(code = 200, message = "Chat was posted successfully."),
+            @ApiResponse(code = 400, message = "Messages Body is invalid.")
+    })
+    public Mono<Messages> postChatWithBody(@RequestBody MessagesDAO messagesDAO) {
+        return messagesFacade.insertNewChat(messagesDAO);
     }
 
     @GetMapping(value = "/chats/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    public Flux<Messages> findMessageByChannelId(@RequestParam String channelId) {
-        return messagesRepository.findWithTailableCursorByChannelId(channelId)
-                .switchIfEmpty(Mono.error(new IllegalStateException("channelId inválido.")));
+    @ApiResponses({
+            @ApiResponse(code = 200, message = "Chat found by id successfully."),
+            @ApiResponse(code = 400, message = "Chat id was not informed.")
+    })
+    public Flux<Messages> findMessageByChatId(@RequestParam(value = "chatId") String chatId) {
+        return messagesFacade.findMessagesByChatId(chatId);
     }
 }
